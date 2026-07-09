@@ -1,22 +1,21 @@
 import math, random
 
-def relu(x):
-    return x if x > 0 else 0
-
-def relu_derivative(x):
-    return 1 if x > 0 else 0
-
 class Neiro:
     def __init__(self, input_size, hidden_layers, output_size):
         self.weights = []
         self.biases = []
         prev = input_size
-        for i, h in enumerate(hidden_layers + [output_size]):
+        for h in hidden_layers + [output_size]:
             w = [[random.gauss(0, math.sqrt(2.0/prev)) for _ in range(h)] for _ in range(prev)]
             b = [0.0] * h
             self.weights.append(w)
             self.biases.append(b)
             prev = h
+        self.activation_hidden = lambda x: x if x > 0 else 0
+        self.derivative_hidden = lambda x: 1 if x > 0 else 0
+
+        self.activation_output = lambda x: x
+        self.derivative_output = lambda x: 1
 
     def forward(self, x):
         self.a = [x]
@@ -27,41 +26,41 @@ class Neiro:
                 for i in range(len(w)):
                     s += w[i][j] * x[i]
                 z.append(s)
-            x = [relu(v) for v in z]
+            x = [self.activation_hidden(v) for v in z]
             self.a.append(x)
-        return x
+        output = self.a[-1]
+        final = [self.activation_output(v) for v in output]
+        self.a[-1] = final
+        return final
 
     def backward(self, target, lr=0.01):
         output = self.a[-1]
-        delta = [output[i] - target[i] for i in range(len(output))]
+        delta = [(output[i] - target[i]) * self.derivative_output(output[i]) for i in range(len(output))]
+
+        deltas = [None] * len(self.weights)
+        deltas[-1] = delta
+
+        for layer in range(len(self.weights) - 2, -1, -1):
+            prev_activations = self.a[layer]
+            w = self.weights[layer]
+            next_delta = deltas[layer + 1]
+
+            new_delta = [0.0] * len(prev_activations)
+            for i in range(len(prev_activations)):
+                error = 0.0
+                for j in range(len(next_delta)):
+                    error += next_delta[j] * w[i][j]
+                new_delta[i] = error * self.derivative_hidden(prev_activations[i])
+            deltas[layer] = new_delta
 
         for layer in range(len(self.weights) - 1, -1, -1):
             prev_activations = self.a[layer]
             w = self.weights[layer]
+            delta = deltas[layer]
+
             for i in range(len(w)):
                 for j in range(len(w[i])):
                     w[i][j] -= lr * delta[j] * prev_activations[i]
 
             for j in range(len(self.biases[layer])):
                 self.biases[layer][j] -= lr * delta[j]
-
-            if layer > 0:
-                new_delta = [0.0] * len(self.weights[layer-1][0])
-                for i in range(len(new_delta)):
-                    for j in range(len(delta)):
-                        new_delta[i] += delta[j] * w[i][j]
-                    new_delta[i] *= relu_derivative(self.a[layer][i])
-                delta = new_delta
-
-net = Neiro(2, [4], 1)
-
-for epoch in range(10_000):
-    x = [random.randint(0, 1), random.randint(0, 1)]
-    y = [1 if x[0] != x[1] else 0]
-
-    out = net.forward(x)
-    net.backward(y, lr=0.1)
-
-for test in [[0,0], [0,1], [1,0], [1,1]]:
-    out = net.forward(test)
-    print(f"{test} -> {out[0]:.4f}")
