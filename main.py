@@ -1,4 +1,5 @@
 import numpy as np
+import json
 
 class Neiro:
     def __init__(self, input_size, hidden_layers, output_size):
@@ -46,3 +47,21 @@ class Neiro:
         for layer in range(len(self.weights) - 1, -1, -1):
             self.weights[layer] -= lr * np.outer(self.a[layer], deltas[layer])
             self.biases[layer] -= lr * deltas[layer]
+
+
+    def save_params(self, save_name="params0.json"):
+        weights_list = [w.tolist() for w in self.weights]
+        biases_list = [b.tolist() for b in self.biases]
+        with open(save_name, 'w') as file:
+            json.dump({
+                'weights': weights_list,
+                'biases': biases_list
+            }, file)
+        print('Сохранено')
+
+    def load_params(self, load_name="params0.json"):
+        with open(load_name, 'r') as file:
+            data = json.load(file)
+        self.weights = [np.array(w) for w in data['weights']]
+        self.biases = [np.array(b) for b in data['biases']]
+        print('Загружено')
